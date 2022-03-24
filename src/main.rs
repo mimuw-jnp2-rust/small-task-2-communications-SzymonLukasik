@@ -117,10 +117,7 @@ impl Client {
     // Returns whether the connection to `addr` exists and has
     // the `Open` status.
     fn is_open(&self, addr: &str) -> bool {
-        match self.connections.get(addr) {
-            Some(Connection::Open(_)) => true,
-            _ => false,
-        }
+        matches!(self.connections.get(addr), Some(Connection::Open(_)))
     }
 
     // Returns the number of closed connections
