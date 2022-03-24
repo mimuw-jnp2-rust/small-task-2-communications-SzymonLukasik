@@ -24,7 +24,7 @@ impl MessageType {
         match &self {
             MessageType::Handshake => "[HANDSHAKE]",
             MessageType::Post => "[POST]",
-            MessageType::GetCount => "[GET COUNT]"
+            MessageType::GetCount => "[GET COUNT]",
         }
     }
 }
@@ -51,10 +51,7 @@ impl Message {
     }
 
     fn new(msg_type: MessageType, load: String) -> Message {
-        Message {
-            msg_type,
-            load
-        }
+        Message { msg_type, load }
     }
 }
 
@@ -82,18 +79,19 @@ impl Client {
     fn open(&mut self, addr: &str, mut server: Server) -> CommsResult<()> {
         match self.is_open(addr) {
             true => Err(CommsError::ConnectionExists(String::from(addr))),
-            false 
-                => match server.receive(Message::new(MessageType::Handshake, self.ip.clone())) {
-                    Ok(Response::HandshakeReceived) => {
-                        self.connections.insert(addr.to_string(), Connection::Open(server));
-                        Ok(())
-                    },
-                    Err(CommsError::UnexpectedHandshake(massage)) => {
-                        self.connections.insert(addr.to_string(), Connection::Closed);
-                        Err(CommsError::UnexpectedHandshake(massage))
-                    },
-                    _ => unreachable!()
+            false => match server.receive(Message::new(MessageType::Handshake, self.ip.clone())) {
+                Ok(Response::HandshakeReceived) => {
+                    self.connections
+                        .insert(addr.to_string(), Connection::Open(server));
+                    Ok(())
                 }
+                Err(CommsError::UnexpectedHandshake(massage)) => {
+                    self.connections
+                        .insert(addr.to_string(), Connection::Closed);
+                    Err(CommsError::UnexpectedHandshake(massage))
+                }
+                _ => unreachable!(),
+            },
         }
     }
 
@@ -103,14 +101,14 @@ impl Client {
     // should be closed.
     fn send(&mut self, addr: &str, msg: Message) -> CommsResult<Response> {
         match self.connections.get_mut(addr) {
-            Some(Connection::Open(server)) 
-                => match server.receive(msg) {
-                    Err(err_msg) => {
-                        self.connections.insert(addr.to_string(), Connection::Closed);
-                        Err(err_msg)
-                    },
-                    Ok(resp) => Ok(resp)
-                },
+            Some(Connection::Open(server)) => match server.receive(msg) {
+                Err(err_msg) => {
+                    self.connections
+                        .insert(addr.to_string(), Connection::Closed);
+                    Err(err_msg)
+                }
+                Ok(resp) => Ok(resp),
+            },
             Some(Connection::Closed) => Err(CommsError::ConnectionClosed(String::from(addr))),
             None => Err(CommsError::ConnectionNotFound(String::from(addr))),
         }
@@ -121,14 +119,18 @@ impl Client {
     fn is_open(&self, addr: &str) -> bool {
         match self.connections.get(addr) {
             Some(Connection::Open(_)) => true,
-            _ => false
+            _ => false,
         }
     }
 
     // Returns the number of closed connections
     #[allow(dead_code)]
     fn count_closed(&self) -> usize {
-        self.connections.keys().into_iter().filter(|key| !self.is_open(key)).count()
+        self.connections
+            .keys()
+            .into_iter()
+            .filter(|key| !self.is_open(key))
+            .count()
     }
 }
 
@@ -138,7 +140,6 @@ enum Response {
     PostReceived,
     GetCount(u32),
 }
-
 
 #[derive(Clone)]
 struct Server {
@@ -154,7 +155,7 @@ impl Server {
             name,
             post_count: 0,
             limit,
-            connected_client: None
+            connected_client: None,
         }
     }
 
@@ -165,21 +166,26 @@ impl Server {
     // with the GetCount response containing the number of received POST requests.
     fn receive(&mut self, msg: Message) -> CommsResult<Response> {
         eprintln!("{} received:\n{}", self.name, msg.content());
-        
+
         let Message { msg_type, load } = msg;
-        match  msg_type {
-            MessageType::Handshake 
-                => if self.connected_client.is_none() {
+        match msg_type {
+            MessageType::Handshake => {
+                if self.connected_client.is_none() {
                     self.connected_client = Some(load);
                     Ok(Response::HandshakeReceived)
-                } else {Err(CommsError::UnexpectedHandshake(self.name.clone()))},
-            MessageType::Post 
-                => if self.post_count < self.limit {
+                } else {
+                    Err(CommsError::UnexpectedHandshake(self.name.clone()))
+                }
+            }
+            MessageType::Post => {
+                if self.post_count < self.limit {
                     self.post_count += 1;
                     Ok(Response::PostReceived)
-                } else {Err(CommsError::ServerLimitReached(self.name.clone()))},
-            MessageType::GetCount
-                => Ok(Response::GetCount(self.post_count)),
+                } else {
+                    Err(CommsError::ServerLimitReached(self.name.clone()))
+                }
+            }
+            MessageType::GetCount => Ok(Response::GetCount(self.post_count)),
         }
     }
 }
